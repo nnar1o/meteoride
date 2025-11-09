@@ -1,0 +1,10 @@
+# Meteoride
+
+*.log
+*.tmp
+.DS_Store
+.env
+.idea/
+*.swp
+*.swo
+*~

@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: meteoride-backend
+  namespace: default
+  labels:
+    app: meteoride-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: meteoride-backend
+  template:
+    metadata:
+      labels:
+        app: meteoride-backend
+    spec:
+      containers:
+      - name: backend
+        image: meteoride-backend:0.1.1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: http
+        envFrom:
+        - secretRef:
+            name: meteoride-secrets
+        - configMapRef:
+            name: meteoride-config
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
+          requests:
+            cpu: "250m"
+            memory: "128Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: meteoride-backend
+  namespace: default
+spec:
+  selector:
+    app: meteoride-backend
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8080
+  type: ClusterIP
