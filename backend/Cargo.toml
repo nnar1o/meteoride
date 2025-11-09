@@ -1,0 +1,26 @@
+[package]
+name = "meteoride-backend"
+version = "0.1.1"
+edition = "2021"
+authors = ["nnar1o"]
+description = "Weather-based ride safety backend service"
+
+[dependencies]
+actix-web = "4.9"
+actix-rt = "2.10"
+tokio = { version = "1.42", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+reqwest = { version = "0.12", features = ["json"] }
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
+geohash = "0.13"
+dotenv = "0.15"
+log = "0.4"
+env_logger = "0.11"
+anyhow = "1.0"
+thiserror = "2.0"
+shellexpand = "3.1"
+
+[dev-dependencies]
+mockito = "1.6"

@@ -1,0 +1,13 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+weatherapi:
+  key: "${WEATHER_API_KEY}"
+  provider: "WeatherAPI"
+  base_url: "https://api.weatherapi.com/v1"
+
+cache:
+  redis_url: "redis://redis:6379/0"
+  ttl_seconds: 900   # 15 minutes
+  geohash_precision: 5
