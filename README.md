@@ -45,7 +45,6 @@ Szczegóły techniczne — backend (Rust)
 Główne komponenty:
 - API server (actix-web lub axum — lekki i szybki).
 - Moduł integracji z WeatherAPI (odpowiedzialny za fetching i mapowanie danych).
-- Logika oceny warunków (reguły per vehicle: max wiatr, opady, temp, widoczność, oblodzenie).
 - Cache: Redis (async client).
 - Konfiguracja: plik YAML ładowany przy starcie (dotenv + yaml).
 
@@ -74,16 +73,6 @@ cache:
   redis_url: "redis://redis:6379/0"
   ttl_seconds: 900   # 15 minut
   geohash_precision: 5
-
-rules:
-  bike:
-    max_wind_kph: 30
-    max_precip_mm: 3
-    min_temp_c: -5
-  motor:
-    max_wind_kph: 60
-    max_precip_mm: 10
-    min_temp_c: -10
 ```
 
 Testy — backend
