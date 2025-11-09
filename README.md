@@ -2,18 +2,18 @@
 
 # Meteoride — dokumentacja projektu
 
-Wersja: 0.1.0  
+Wersja: 0.1.1  
 Data: 2025-11-09  
 Autor: nnar1o
 
 Krótki opis
 ----------
-Aplikacja mobilna dla osób jeżdżących na rowerze lub motocyklu. Rano wysyła powiadomienie, czy pogoda jest odpowiednia do jazdy (rower/motocykl) czy lepiej wybrać samochód. Minimalna wersja (MVP) działa bez logowania profili.
+Aplikacja mobilna dla osób jeżdżących na rowerze lub motocyklu. Rano wysyła powiadomienie, czy pogoda jest odpowiednia do jazdy (rower/motocykl) czy lepiej wybrać samochód. Minimalna wersja (MVP) skupia się na prostocie, niskich kosztach hostingu i dokładnym powiadomieniu z uwzględnieniem preferencji użytkownika ustawianych w aplikacji mobilnej.
 
 Zasady wersjonowania
 ---------------------
 Używamy SemVer. Przy każdej zmianie funkcjonalnej podbijamy wersję:
-- Major.Minor.Patch — np. 0.1.0 → 0.2.0 dla nowych funkcji, 0.1.1 dla poprawek.
+- Major.Minor.Patch — np. 0.1.1 → 0.2.0 dla nowych funkcji, 0.1.2 dla poprawek.
 
 Architektura (skrót)
 --------------------
@@ -32,13 +32,15 @@ Mobile:
 - Włącz/wyłącz powiadomienia i ustawienie godziny powiadomienia.
 - Odbieranie porannego powiadomienia: „Dziś pogoda OK na rower/motor” albo „Lepiej auto”.
 - Estetyczne UI gotowe do komercjalizacji.
+- Ustawianie reguł oceny bezpieczeństwa pogodowego (progi tolerancji dla wiatru, opadów, temperatury itp.) i ich przechowywanie lokalnie w aplikacji — to aplikacja mobilna decyduje, czy warunki są "safe" dla danego użytkownika.
 
 Backend:
-- Endpoint(y) udostępniające ocenę warunków pogodowych dla podanej lokalizacji i pojazdu.
+- Endpoint(y) udostępniające dane pogodowe i meta-informacje potrzebne do oceny warunków (surowe/opracowane dane: opady, wiatr, temperatura, alerty).
 - Pobieranie prognozy z WeatherAPI.
 - Cache w Redis (klucze wg geohash/siatki + typ pojazdu) z TTL i automatyczną inwalidacją.
-- Konfiguracja w YAML (klucze API, cache TTL, reguły oceny).
+- Konfiguracja w YAML (klucze API, cache TTL).
 - Testy jednostkowe + szybkie testy uruchamiane w kontenerze.
+- Uwaga: reguły oceny (progi, wagi) są definiowane i przechowywane w aplikacji mobilnej. Backend może zwracać domyślny score informacyjny, ale ostateczna decyzja/interpretacja należy do klienta mobilnego.
 
 Szczegóły techniczne — backend (Rust)
 -------------------------------------
@@ -50,7 +52,8 @@ Główne komponenty:
 
 Proponowany endpoint (MVP)
 - GET /v1/ride-safety?lat={lat}&lon={lon}&vehicle={bike|motor}
-  - Response: JSON { safe: bool, score: number, reason: string[], forecast_meta: {...} }
+  - Response: JSON { forecast_meta: {...}, hints: string[], provider_score?: number }
+  - Opis: backend zwraca dane pogodowe i "hints" (np. "silny wiatr", "opady"), natomiast aplikacja mobilna stosuje lokalnie ustawione reguły użytkownika, by wyliczyć finalne safe: bool / komunikat powiadomienia. Alternatywnie mobilna aplikacja może przesłać swoje progi w zapytaniu (np. POST z payloadem user_rules) jeśli chcemy, by backend wykonał ocenę tymczasowo.
 
 Cache
 - Klucz: ride:{geohash}:{vehicle}:{provider_version}
@@ -77,7 +80,7 @@ cache:
 
 Testy — backend
 ---------------
-- Unit tests: `cargo test` (logika, parsowanie, reguły).
+- Unit tests: `cargo test` (logika, parsowanie, mapowanie danych).
 - Integracyjne: uruchomienie kontenera z Redis + uruchomienie testów integracyjnych (można mockować WeatherAPI).
 - Szybkie testy w kontenerze:
   - Dockerfile z targetem testowym (stage test) i `cargo test --release`.
@@ -102,7 +105,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: myregistry/meteoride-backend:0.1.0
+          image: myregistry/meteoride-backend:0.1.1
           envFrom:
             - secretRef:
                 name: meteoride-secrets
@@ -125,10 +128,11 @@ Stack:
 
 Funkcje MVP (mobile):
 - Ekran główny: status dla wybranej lokalizacji.
-- Konfiguracja: wybór pojazdu, lokalizacji, powiadomień, godziny. Dodatkowo mozliwosc konfiguracji warunków pogodowych do jazdy rowere/motocyklem.
+- Konfiguracja: wybór pojazdu, lokalizacji, powiadomień, godziny.
+- Ustawienia reguł bezpieczeństwa: użytkownik definiuje progi i wagi (np. maksymalny dopuszczalny wiatr, progi opadów, minimalna temperatura itp.) — te reguły są przechowywane lokalnie w aplikacji i stosowane przy generowaniu powiadomień.
 - Historia ostatnich ocen (opcjonalnie lokalne cache).
 - Ustawienia: tryb jasny/ciemny, jednostki (metric/imperial).
-- prognoza na caly dzien wyswietlana w oknie
+- Prognoza na cały dzień wyświetlana w oknie.
 
 Testy UI (Patrol) — szybkie uruchamianie
 - Cel: szybkie testy bez emulatora → uruchamiać testy na Web (Chrome) gdzie to możliwe.
@@ -157,8 +161,9 @@ patrol test --target test_driver/app_test.dart --device web-server
 Integracja Mobile <-> Backend
 -----------------------------
 - Mobile wysyła zapytanie do backendu z lat/lon i typem pojazdu (cron/scheduler lokalny wyzwala rano).
-- Backend zwraca ocenę i krótkie powody (np. "silny wiatr", "opady").
-- Mobile decyduje o treści notyfikacji.
+- Backend zwraca dane prognostyczne i krótkie powody (np. "silny wiatr", "opady").
+- Aplikacja mobilna stosuje lokalnie ustawione reguły użytkownika i decyduje o treści notyfikacji (safe / not safe).
+- Opcjonalnie: mobilna aplikacja może przesłać swoje reguły do backendu w zapytaniu, jeśli chcemy, by backend wykonał ocenę tymczasowo (np. dla wspólnych rachunków), ale głównym miejscem trzymania i edycji progów jest aplikacja.
 
 Bezpieczeństwo i koszt
 ----------------------
@@ -178,15 +183,15 @@ CI/CD i release
 
 Roadmapa (propozycja wersji)
 ----------------------------
-v0.1.0 (MVP) — minimalne
-- Backend w Rust z cache w Redis, GET /v1/ride-safety
+v0.1.1 (MVP) — poprawka dokumentacji
+- Reguły oceny przeniesione do aplikacji mobilnej (konfiguracja użytkownika).
+- Backend: Rust z cache w Redis, GET /v1/ride-safety zwracający dane pogodowe i hints.
 - Flutter app: wybór pojazdu, lokalizacja, powiadomienia rano, ładne UI
 - Testy jednostkowe backend + podstawowe Patrol UI testy uruchamiane na web
-- Docker + K8s deployment manifests
 
 v0.2.0 — ulepszenia użyteczności
 - Lokalna historia i prosty dashboard
-- Ustawienia progów bezpieczeństwa (użytkownik może zmieniać tolerancję)
+- Ustawienia progów bezpieczeństwa (użytkownik może zmieniać tolerancję) — rozszerzone w mobilnej UI
 - Więcej testów E2E i automatyzacja CI dla Patrol (web)
 
 v0.3.0 — konta i personalizacja
@@ -240,7 +245,7 @@ W repo powinny się znaleźć:
 Kontakt / kolejne kroki
 -----------------------
 Jeśli chcesz, przygotuję:
-- szczegółowy spec API (pełny OpenAPI),
+- szczegółowy spec API (pełny OpenAPI) pokazujący payloady z opcjonalnymi user_rules,
 - przykładowy Dockerfile i manifest K8s,
 - szablon config/default.yaml z opisami pól,
-- przykładowe reguły oceny pogody (konkretne progi).
+- przykładowe reguły oceny przeniesione na stronę mobilną (UI/UX dla ich konfiguracji).
