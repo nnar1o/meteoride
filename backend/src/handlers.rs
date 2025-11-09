@@ -1,9 +1,9 @@
-use actix_web::{get, web, HttpResponse, Responder};
 use crate::{
     cache::{calculate_provider_score, generate_hints, CacheService},
     models::{RideSafetyResponse, VehicleType},
     weather::WeatherClient,
 };
+use actix_web::{get, web, HttpResponse, Responder};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -36,14 +36,26 @@ pub async fn ride_safety_handler(
 
     // Check cache
     let mut cache = data.cache_service.lock().await;
-    if let Ok(Some(cached)) = cache.get_cached_response(query.lat, query.lon, vehicle).await {
-        log::info!("Cache hit for {},{} vehicle={}", query.lat, query.lon, query.vehicle);
+    if let Ok(Some(cached)) = cache
+        .get_cached_response(query.lat, query.lon, vehicle)
+        .await
+    {
+        log::info!(
+            "Cache hit for {},{} vehicle={}",
+            query.lat,
+            query.lon,
+            query.vehicle
+        );
         return HttpResponse::Ok().json(cached);
     }
     drop(cache);
 
     // Fetch from weather API
-    let forecast = match data.weather_client.get_current_weather(query.lat, query.lon).await {
+    let forecast = match data
+        .weather_client
+        .get_current_weather(query.lat, query.lon)
+        .await
+    {
         Ok(f) => f,
         Err(e) => {
             log::error!("Failed to fetch weather: {}", e);
@@ -65,11 +77,19 @@ pub async fn ride_safety_handler(
 
     // Cache the response
     let mut cache = data.cache_service.lock().await;
-    if let Err(e) = cache.set_cached_response(query.lat, query.lon, vehicle, &response).await {
+    if let Err(e) = cache
+        .set_cached_response(query.lat, query.lon, vehicle, &response)
+        .await
+    {
         log::warn!("Failed to cache response: {}", e);
     }
 
-    log::info!("Weather fetched for {},{} vehicle={}", query.lat, query.lon, query.vehicle);
+    log::info!(
+        "Weather fetched for {},{} vehicle={}",
+        query.lat,
+        query.lon,
+        query.vehicle
+    );
     HttpResponse::Ok().json(response)
 }
 

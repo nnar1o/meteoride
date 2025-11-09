@@ -20,12 +20,9 @@ impl CacheService {
     }
 
     fn generate_cache_key(&self, lat: f64, lon: f64, vehicle: VehicleType) -> String {
-        let geohash = geohash::encode(
-            geohash::Coord { x: lon, y: lat },
-            self.geohash_precision,
-        )
-        .unwrap_or_else(|_| "default".to_string());
-        
+        let geohash = geohash::encode(geohash::Coord { x: lon, y: lat }, self.geohash_precision)
+            .unwrap_or_else(|_| "default".to_string());
+
         format!("ride:{}:{}:v1", geohash, vehicle.as_str())
     }
 
@@ -37,7 +34,7 @@ impl CacheService {
     ) -> Result<Option<RideSafetyResponse>> {
         let key = self.generate_cache_key(lat, lon, vehicle);
         let cached: Option<String> = self.conn.get(&key).await?;
-        
+
         match cached {
             Some(data) => Ok(serde_json::from_str(&data).ok()),
             None => Ok(None),
