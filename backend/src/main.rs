@@ -5,7 +5,7 @@ mod models;
 mod weather;
 
 use actix_web::{middleware, web, App, HttpServer};
-use handlers::{AppState, health_handler, ride_safety_handler};
+use handlers::{health_handler, ride_safety_handler, AppState};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -13,16 +13,20 @@ use tokio::sync::Mutex;
 async fn main() -> std::io::Result<()> {
     // Initialize environment variables
     dotenv::dotenv().ok();
-    
+
     // Initialize logger
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     // Load configuration
-    let config = config::Config::from_file("config/default.yaml")
-        .expect("Failed to load configuration");
+    let config =
+        config::Config::from_file("config/default.yaml").expect("Failed to load configuration");
 
     log::info!("Starting Meteoride Backend v{}", env!("CARGO_PKG_VERSION"));
-    log::info!("Server will listen on {}:{}", config.server.host, config.server.port);
+    log::info!(
+        "Server will listen on {}:{}",
+        config.server.host,
+        config.server.port
+    );
 
     // Initialize weather client
     let weather_client = weather::WeatherClient::new(

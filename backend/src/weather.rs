@@ -1,4 +1,4 @@
-use crate::models::{WeatherApiResponse, ForecastMeta};
+use crate::models::{ForecastMeta, WeatherApiResponse};
 use anyhow::Result;
 
 pub struct WeatherClient {
@@ -22,7 +22,8 @@ impl WeatherClient {
             self.base_url, self.api_key, lat, lon
         );
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .send()
             .await?
